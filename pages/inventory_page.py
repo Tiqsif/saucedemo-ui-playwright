@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 
 from pages.base_page import BasePage
 
@@ -15,6 +15,10 @@ class InventoryPage(BasePage):
         super().__init__(page)
         self.cart_badge = page.locator("[data-test='shopping-cart-badge']")
         self.cart_link = page.locator("[data-test='shopping-cart-link']")
+        self.sort_dropdown = page.locator("[data-test='product-sort-container']")
+        self.item_names = page.locator("[data-test='inventory-item-name']")
+        # every product image ends in -img, this one locator grabs all 6 at once
+        self.product_images = page.locator("[data-test$='-img']")
 
     def load(self) -> None:
         self.goto(self.URL)
@@ -37,3 +41,19 @@ class InventoryPage(BasePage):
 
     def go_to_cart(self) -> None:
         self.cart_link.click()
+
+    def get_item_names(self) -> list[str]:
+        return self.item_names.all_inner_texts()
+
+    def sort_by(self, option_value: str) -> None:
+        # option_value is whatever the dropdowns own option values are,
+        # za for name z to a, lohi for price low to high, and so on
+        self.sort_dropdown.select_option(option_value)
+
+    def get_image_sources(self) -> list[str]:
+        # waiting for the count first means this always reads the grid after
+        # its actually finished rendering. .all() on its own doesnt wait for
+        # anything, it just snapshots whatevers in the dom right now, which
+        # can be too early right after a login redirect
+        expect(self.product_images).to_have_count(6)
+        return [image.get_attribute("src") for image in self.product_images.all()]

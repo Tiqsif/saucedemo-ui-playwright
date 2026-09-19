@@ -1,0 +1,44 @@
+# runs the whole suite on every push, across both browsers, in parallel,
+# and keeps a copy of anything a failing test produced so it can be looked
+# at from the actions run itself, no need to reproduce it locally first
+
+name: playwright tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install python deps
+        run: pip install -r requirements.txt
+
+      - name: install browsers
+        run: playwright install --with-deps chromium firefox
+
+      - name: run tests
+        run: pytest --ignore=tests/test_problem_user.py -n auto --browser chromium --browser firefox
+
+      - name: run known bug tests against problem_user
+        # these are expected to fail for real, problem_user is broken on
+        # purpose on saucedemos own side, continue-on-error keeps that one
+        # real failure from turning the whole workflow red, while still
+        # letting the screenshot, video and trace on failure system run for real
+        continue-on-error: true
+        run: pytest tests/test_problem_user.py -n auto --browser chromium --browser firefox
+
+      - name: upload failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
